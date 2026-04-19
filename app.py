@@ -116,7 +116,7 @@ with st.sidebar:
 def call_(prompt: str, api_key: str) -> str:
     import google.generativeai as genai
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-2.5-flash-lite")
+    model = genai.GenerativeModel("gemini-2.0-flash")
     response = model.generate_content(prompt)
     return response.text.strip()
 
