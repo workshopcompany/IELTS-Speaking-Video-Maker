@@ -73,23 +73,17 @@ score_desc = {
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("## ⚙️ 설정")
+
     st.markdown("### 🔑 API Key (Gemini)")
-    
-    # 1. 시스템(Secrets)에서 기본값 가져오기
     default_key = ""
     if hasattr(st, "secrets"):
         default_key = st.secrets.get("GEMINI_API_KEY", "")
-    
-    # 2. 사용자에게 입력받기
     user_api_key = st.text_input(
         "Gemini API Key (선택)",
         type="password",
         placeholder="비워두면 기본 키 사용",
         help="aistudio.google.com에서 무료 발급 가능"
     )
-
-    # 3. [중요] 최종 사용할 키 결정 로직 (이 부분이 누락되었습니다)
-    # 사용자가 직접 입력한 키가 있으면 그것을 쓰고, 없으면 시스템 기본값을 씁니다.
     gemini_api_key = user_api_key.strip() if user_api_key.strip() else default_key
 
     if user_api_key.strip():
@@ -116,16 +110,48 @@ with st.sidebar:
     video_style = st.selectbox("스타일", ["다크 미니멀", "라이트 클린", "딥 블루"])
     show_korean = st.checkbox("한글 번역 표시", value=True)
 
-# ── Gemini API 호출 함수 ────────────────────────────────────────────────────
+# ── Gemini API 호출 함수 (모델 자동 fallback + 요청 간격 제한) ──────────────
 def call_gemini(prompt: str, api_key: str) -> str:
-    try:
-        import google.generativeai as genai
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-2.0-flash")
-        response = model.generate_content(prompt)
-        return response.text.strip()
-    except Exception as e:
-        return f"Error: {str(e)}"
+    import time
+    import google.generativeai as genai
+    import streamlit as _st
+
+    genai.configure(api_key=api_key)
+
+    # ── 요청 간격 제한 (최소 8초) ──────────────────────────────────────────────
+    MIN_INTERVAL = 8  # 초
+    now = time.time()
+    last_called = _st.session_state.get("_gemini_last_called", 0)
+    wait = MIN_INTERVAL - (now - last_called)
+    if wait > 0:
+        for remaining in range(int(wait), 0, -1):
+            _st.toast(f"⏳ API 과호출 방지 대기 중... {remaining}초", icon="⏳")
+            time.sleep(1)
+
+    # ── 모델 fallback 순서 ────────────────────────────────────────────────────
+    models = [
+        "gemini-2.0-flash",
+        "gemini-1.5-flash",
+        "gemini-1.5-flash-8b",
+    ]
+    last_error = ""
+    for model_name in models:
+        try:
+            model = genai.GenerativeModel(model_name)
+            response = model.generate_content(prompt)
+            _st.session_state["_gemini_last_called"] = time.time()
+            _st.session_state["last_model_used"] = model_name
+            return response.text.strip()
+        except Exception as e:
+            err = str(e)
+            if "429" in err or "quota" in err.lower() or "RESOURCE_EXHAUSTED" in err:
+                last_error = f"[{model_name}] 할당량 초과"
+                time.sleep(3)  # 모델 전환 전 잠깐 대기
+                continue
+            return f"Error: {err}"
+
+    _st.session_state["_gemini_last_called"] = time.time()
+    return f"Error: 모든 모델 할당량 초과 — {last_error}. 내일 다시 시도하거나 유료 API 키를 사용하세요."
 
 # ── IELTS 질문 목록 ───────────────────────────────────────────────────────────
 QUESTION_BANK = {
@@ -240,15 +266,16 @@ Respond ONLY with a raw JSON object - no markdown fences, no extra text:
                 log.success("✅ 프롬프트 구성 완료")
 
                 # ── [2단계] Gemini API 호출 ────────────────────────────────
-                log.write("**[2단계] Gemini API 호출 중...**")
+                log.write("**[2단계] Gemini API 호출 중... (할당량 초과 시 자동 모델 전환)**")
                 raw = call_gemini(prompt, gemini_api_key)
-                log.write(f"📥 **API 원본 응답 ({len(raw)}자):**")
+                used_model = st.session_state.get("last_model_used", "알 수 없음")
+                log.write(f"📥 **API 원본 응답 ({len(raw)}자) — 사용 모델: `{used_model}`**")
                 log.code(raw, language="text")
 
                 if raw.startswith("Error:"):
                     st.error(f"❌ [2단계 실패] API 호출 오류: {raw}")
                     st.stop()
-                log.success("✅ API 응답 수신 완료")
+                log.success(f"✅ API 응답 수신 완료 (모델: {used_model})")
 
                 # ── [3단계] JSON 추출 ──────────────────────────────────────
                 log.write("**[3단계] JSON 추출 중...**")
