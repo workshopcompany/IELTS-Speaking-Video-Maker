@@ -196,6 +196,13 @@ st.markdown('<p class="step-header">Step 3 — AI 영어 스크립트 생성 (Ge
 
 english_script     = st.session_state.get("english_script", "")
 korean_translation = st.session_state.get("korean_translation", "")
+import streamlit as st
+
+# 201번 줄 이전에 이 코드가 있어야 합니다.
+if "GEMINI_API_KEY" in st.secrets:
+    gemini_api_key = st.secrets["GEMINI_API_KEY"]
+else:
+    gemini_api_key = None  # 혹은 사용자에게 입력을 받도록 설정
 
 if st.button("✨ 영어 스크립트 생성", type="primary", use_container_width=True):
     if not gemini_api_key:
