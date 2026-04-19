@@ -76,15 +76,15 @@ with st.sidebar:
 
     # Gemini API Key
     # 우선순위: 사용자 직접 입력 > Streamlit Secrets 기본 키
-    st.markdown("### 🔑 Gemini API Key")
-    default_key = st.secrets.get("GEMINI_API_KEY", "") if hasattr(st, "secrets") else ""
+    st.markdown("### 🔑  API Key")
+    default_key = st.secrets.get("_API_KEY", "") if hasattr(st, "secrets") else ""
     user_api_key = st.text_input(
         "API Key (선택)",
         type="password",
         placeholder="비워두면 기본 키 사용",
         help="aistudio.google.com에서 무료 발급 가능"
     )
-    gemini_api_key = user_api_key.strip() if user_api_key.strip() else default_key
+    _api_key = user_api_key.strip() if user_api_key.strip() else default_key
 
     if user_api_key.strip():
         st.caption("✅ 내 API 키 사용 중")
@@ -112,11 +112,11 @@ with st.sidebar:
     video_style = st.selectbox("스타일", ["다크 미니멀", "라이트 클린", "딥 블루"])
     show_korean = st.checkbox("한글 번역 표시", value=True)
 
-# ── Gemini 호출 ───────────────────────────────────────────────────────────────
-def call_gemini(prompt: str, api_key: str) -> str:
+# ──  호출 ───────────────────────────────────────────────────────────────
+def call_(prompt: str, api_key: str) -> str:
     import google.generativeai as genai
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-2.0-flash")
+    model = genai.GenerativeModel("gemini-2.5-flash")
     response = model.generate_content(prompt)
     return response.text.strip()
 
