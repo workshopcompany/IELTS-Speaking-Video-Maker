@@ -4,6 +4,6 @@ gTTS>=2.5.1
 moviepy>=1.0.3
 Pillow>=10.0.0
 numpy>=1.24.0
-chatterbox
+chatterbox-tts==0.1.0
 # 내 목소리 클로닝 사용 시 추가 설치
 # pip install chatterbox-tts
