@@ -61,31 +61,29 @@ st.markdown('<hr class="divider">', unsafe_allow_html=True)
 
 # ── Score descriptions ────────────────────────────────────────────────────────
 score_desc = {
-    5.0: "기초 – 단순 문장, 기본 어휘",
-    5.5: "초중급 – 조금 더 자연스럽게",
-    6.0: "중급 – 복잡한 구조 시작",
-    6.5: "중상급 – 다양한 어휘, 자연스러운 흐름",
-    7.0: "상급 – 관용구, 고급 어휘 포함",
-    7.5: "고급 – 원어민에 가까운 표현",
-    8.0: "최고급 – 네이티브 수준",
+    5.0: "기초 - 단순 문장, 기본 어휘",
+    5.5: "초중급 - 조금 더 자연스럽게",
+    6.0: "중급 - 복잡한 구조 시작",
+    6.5: "중상급 - 다양한 어휘, 자연스러운 흐름",
+    7.0: "상급 - 관용구, 고급 어휘 포함",
+    7.5: "고급 - 원어민에 가까운 표현",
+    8.0: "최고급 - 네이티브 수준",
 }
 
-# ── Sidebar (API Key 및 설정) ───────────────────────────────────────────────────
+# ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("## ⚙️ 설정")
 
-    # Gemini API Key 설정 (오류 수정됨)
-    st.markdown("### 🔑  API Key")
-    # secrets.toml에 GEMINI_API_KEY가 있는지 확인
-    default_key = st.secrets.get("GEMINI_API_KEY", "") if hasattr(st, "secrets") else ""
+    st.markdown("### 🔑 API Key (Gemini)")
+    default_key = ""
+    if hasattr(st, "secrets"):
+        default_key = st.secrets.get("GEMINI_API_KEY", "")
     user_api_key = st.text_input(
-        "API Key (선택)",
+        "Gemini API Key (선택)",
         type="password",
         placeholder="비워두면 기본 키 사용",
         help="aistudio.google.com에서 무료 발급 가능"
     )
-    
-    # 사용자가 입력한 키가 있으면 우선 사용, 없으면 default_key 사용
     gemini_api_key = user_api_key.strip() if user_api_key.strip() else default_key
 
     if user_api_key.strip():
@@ -98,7 +96,6 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # IELTS 목표 점수
     st.markdown("### 🎯 IELTS 목표 점수")
     target_score = st.select_slider(
         "Band Score",
@@ -109,85 +106,54 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # 영상 설정
     st.markdown("### 🎬 영상 배경")
     video_style = st.selectbox("스타일", ["다크 미니멀", "라이트 클린", "딥 블루"])
     show_korean = st.checkbox("한글 번역 표시", value=True)
 
-# ── Gemini API 호출 함수 (오류 수정됨) ──────────────────────────────────────────
+# ── Gemini API 호출 함수 ────────────────────────────────────────────────────
 def call_gemini(prompt: str, api_key: str) -> str:
-    import google.generativeai as genai
     try:
+        import google.generativeai as genai
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel("gemini-2.0-flash")
         response = model.generate_content(prompt)
         return response.text.strip()
     except Exception as e:
         return f"Error: {str(e)}"
-# ── 스타일 설정 ───────────────────────────────────────────────────────────────
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono&display=swap');
-html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
-.question-card { background: #f8f6f1; border-left: 3px solid #c4956a; padding: 16px 20px; border-radius: 0 8px 8px 0; margin: 12px 0; font-size: 15px; line-height: 1.6; }
-.answer-box { background: #eef4fb; border: 1px solid #b8d4ee; padding: 16px 20px; border-radius: 8px; margin: 12px 0; font-size: 14px; line-height: 1.8; font-family: 'DM Mono', monospace; }
-.step-header { font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: #888; margin-bottom: 6px; }
-.divider { border: none; border-top: 1px solid #eee; margin: 28px 0; }
-</style>
-""", unsafe_allow_html=True)
 
-# ── Header ────────────────────────────────────────────────────────────────────
-st.markdown("# 🎙️ IELTS 스피킹 영상 메이커")
-st.markdown('<hr class="divider">', unsafe_allow_html=True)
-
-# ── Sidebar ───────────────────────────────────────────────────────────────────
-with st.sidebar:
-    st.markdown("## ⚙️ 설정")
-    st.markdown("### 🔑 API Key")
-    # Secrets 우선 확인 후 사용자 입력값 확인
-    default_key = st.secrets.get("GEMINI_API_KEY", "") if hasattr(st, "secrets") else ""
-    user_api_key = st.text_input("API Key (선택)", type="password", placeholder="비워두면 기본 키 사용")
-    gemini_api_key = user_api_key.strip() if user_api_key.strip() else default_key
-
-    target_score = st.select_slider("🎯 목표 점수", options=[5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0], value=6.5)
-    video_style = st.selectbox("🎬 배경 스타일", ["다크 미니멀", "라이트 클린", "딥 블루"])
-    show_korean = st.checkbox("한글 번역 표시", value=True)
-
-# ── IELTS 질문 데이터 ─────────────────────────────────────────────────────────
+# ── IELTS 질문 목록 ───────────────────────────────────────────────────────────
 QUESTION_BANK = {
-    "Part 1 – 일상": ["Tell me about your hometown.", "Do you enjoy cooking?", "How do you spend your weekends?"],
-    "Part 2 – 경험": ["Describe a memorable trip you have taken.", "Describe a time when you helped someone."],
-    "Part 3 – 사회": ["Do you think technology has improved education?", "Is learning a second language important?"]
-}
-
-# ── IELTS 질문 목록 (기본 프리셋) ─────────────────────────────────────────────
-QUESTION_BANK = {
-    "Part 1 – 일상": [
+    "Part 1 - 일상": [
         "Tell me about your hometown. What do you like most about it?",
         "Do you enjoy cooking? Why or why not?",
         "How do you usually spend your weekends?",
     ],
-    "Part 1 – 취미/관심사": [
+    "Part 1 - 취미/관심사": [
         "What hobbies do you have?",
         "Do you enjoy reading books? What kind?",
         "How often do you exercise?",
     ],
-    "Part 2 – 사람": [
+    "Part 2 - 사람": [
         "Describe a person who has had a great influence on your life.",
         "Describe someone you admire. Who is this person and why do you admire them?",
     ],
-    "Part 2 – 경험": [
+    "Part 2 - 경험": [
         "Describe a memorable trip you have taken.",
         "Describe a time when you helped someone.",
     ],
-    "Part 3 – 사회/교육": [
+    "Part 3 - 사회/교육": [
         "Do you think technology has improved education? In what ways?",
         "How important is it for young people to learn a second language?",
     ],
 }
 
+# ── Session state 초기화 ──────────────────────────────────────────────────────
+for key in ["english_script", "korean_translation", "band_tips", "current_question"]:
+    if key not in st.session_state:
+        st.session_state[key] = ""
+
 # ─────────────────────────────────────────────────────────────────────────────
-# Step 1: 질문 선택 (AI 기능 복구)
+# Step 1: 질문 선택
 # ─────────────────────────────────────────────────────────────────────────────
 st.markdown('<p class="step-header">Step 1 — 질문 선택</p>', unsafe_allow_html=True)
 col1, col2 = st.columns([1, 1])
@@ -198,7 +164,8 @@ with col2:
 
 if question_mode == "AI가 생성":
     if st.button("✨ 새로운 질문 생성", use_container_width=True):
-        if not gemini_api_key: st.error("API Key가 필요합니다.")
+        if not gemini_api_key:
+            st.error("API Key가 필요합니다.")
         else:
             with st.spinner("AI 질문 생성 중..."):
                 q_prompt = f"Ask ONE random IELTS speaking question for {part}. Return only the question."
@@ -234,45 +201,18 @@ korean_answer = st.text_area(
 st.markdown('<hr class="divider">', unsafe_allow_html=True)
 st.markdown('<p class="step-header">Step 3 — AI 영어 스크립트 생성 (Gemini)</p>', unsafe_allow_html=True)
 
-# 세션 상태에서 스크립트 불러오기
-if "english_script" not in st.session_state:
-    st.session_state.english_script = ""
-if "korean_translation" not in st.session_state:
-    st.session_state.korean_translation = ""
-
-# 사이드바에서 설정한 gemini_api_key 변수를 사용해야 함
 if st.button("✨ 영어 스크립트 생성", type="primary", use_container_width=True):
-    if not gemini_api_key: # ← 사이드바의 최종 키 변수명 확인
-        st.error("Gemini API Key가 필요합니다. 사이드바에서 설정해주세요.")
-    elif not question:
+    if not gemini_api_key:
+        st.error("API Key가 필요합니다. 사이드바에서 설정해주세요.")
+    elif not question or question == "질문을 생성해주세요.":
         st.error("질문을 선택하거나 입력해주세요.")
     elif not korean_answer.strip():
         st.error("한글 답변을 입력해주세요.")
     else:
         with st.spinner("Gemini가 스크립트를 작성하는 중..."):
             try:
-                # 위에서 정의한 정상적인 call_gemini 함수 호출
                 prompt = f"""You are an IELTS speaking coach. Transform the Korean answer into natural English for IELTS Band {target_score}.
-                IELTS Question: {question}
-                Korean answer: {korean_answer}
-                Respond ONLY with a raw JSON: {{"english": "...", "korean": "..."}}"""
-                
-                raw = call_gemini(prompt, gemini_api_key)
-                
-                # 결과 처리 (JSON 파싱)
-                data = json.loads(raw[raw.find("{"):raw.rfind("}")+1])
-                st.session_state.english_script = data["english"]
-                st.session_state.korean_translation = data["korean"]
-                
-            except Exception as e:
-                st.error(f"스크립트 생성 중 오류가 발생했습니다: {e}")
 
-# 화면 표시 부분
-if st.session_state.english_script:
-    st.markdown(f'<div class="answer-box">🇬🇧 {st.session_state.english_script}</div>', unsafe_allow_html=True)
-    if show_korean:
-        st.write(f"🇰🇷 {st.session_state.korean_translation}")
-        
 Band {target_score} guidance: {score_desc[target_score]}
 
 Rules:
@@ -285,7 +225,7 @@ Rules:
 IELTS Question: {question}
 Korean answer: {korean_answer}
 
-Respond ONLY with a raw JSON object — no markdown fences, no extra text:
+Respond ONLY with a raw JSON object - no markdown fences, no extra text:
 {{"english": "...", "korean": "자연스러운 한국어 번역", "band_tips": "이 수준에서 사용된 특징적 표현 설명 (한국어)"}}"""
 
                 raw = call_gemini(prompt, gemini_api_key)
@@ -296,21 +236,21 @@ Respond ONLY with a raw JSON object — no markdown fences, no extra text:
                     if raw.startswith("json"):
                         raw = raw[4:]
                 start = raw.find("{")
-                end   = raw.rfind("}") + 1
-                raw   = raw[start:end]
+                end = raw.rfind("}") + 1
+                raw = raw[start:end]
 
                 data = json.loads(raw)
-                st.session_state.english_script     = data["english"]
+                st.session_state.english_script = data["english"]
                 st.session_state.korean_translation = data["korean"]
-                st.session_state.band_tips          = data.get("band_tips", "")
-                
-                english_script     = data["english"]
-                korean_translation = data["korean"]
+                st.session_state.band_tips = data.get("band_tips", "")
 
             except json.JSONDecodeError:
                 st.error("응답 파싱 오류입니다. 다시 시도해주세요.")
             except Exception as e:
                 st.error(f"오류: {e}")
+
+english_script = st.session_state.english_script
+korean_translation = st.session_state.korean_translation
 
 if english_script:
     st.markdown(f'<div class="answer-box">🇬🇧 {english_script}</div>', unsafe_allow_html=True)
@@ -340,11 +280,16 @@ voice_tab1, voice_tab2 = st.tabs([
 ])
 
 with voice_tab1:
-    st.caption("별도 설치 불필요. 인터넷 연결만 있으면 즉시 사용 가능.")
+    st.markdown("""
+    <div class="voice-card">
+    <b>gTTS (Google Text-to-Speech)</b><br>
+    <small>별도 설치 불필요. 인터넷 연결만 있으면 즉시 사용 가능.</small>
+    </div>
+    """, unsafe_allow_html=True)
     gtts_accent = st.selectbox("영어 억양", ["미국 영어", "영국 영어", "호주 영어"])
-    accent_map  = {"미국 영어": "en", "영국 영어": "en-GB", "호주 영어": "en-AU"}
+    accent_map = {"미국 영어": "en", "영국 영어": "en-GB", "호주 영어": "en-AU"}
     st.session_state.voice_mode = "gtts"
-    st.session_state.gtts_lang  = accent_map[gtts_accent]
+    st.session_state.gtts_lang = accent_map[gtts_accent]
 
 with voice_tab2:
     st.markdown("""
@@ -374,7 +319,7 @@ with voice_tab2:
     if ref_audio:
         st.audio(ref_audio)
         st.session_state.ref_audio_bytes = ref_audio.read()
-        st.session_state.ref_audio_name  = ref_audio.name
+        st.session_state.ref_audio_name = ref_audio.name
         st.success("✅ 녹음 파일 업로드 완료")
 
     if chatterbox_ready and ref_audio:
@@ -402,7 +347,7 @@ st.markdown('<p class="step-header">Step 5 — 영상 생성</p>', unsafe_allow_
 if not english_script:
     st.info("먼저 Step 3에서 영어 스크립트를 생성해주세요.")
 else:
-    voice_mode  = st.session_state.get("voice_mode", "gtts")
+    voice_mode = st.session_state.get("voice_mode", "gtts")
     voice_label = "내 목소리 (Chatterbox)" if voice_mode == "chatterbox" else "기본 TTS (gTTS)"
     st.caption(f"현재 목소리: {voice_label}")
 
@@ -412,8 +357,8 @@ else:
                 from moviepy.editor import AudioFileClip, ImageClip, concatenate_videoclips
 
                 progress = st.progress(0)
-                status   = st.empty()
-                tmpdir   = tempfile.mkdtemp()
+                status = st.empty()
+                tmpdir = tempfile.mkdtemp()
 
                 q_audio_path = os.path.join(tmpdir, "question.wav")
                 a_audio_path = os.path.join(tmpdir, "answer.wav")
@@ -424,7 +369,7 @@ else:
                     progress.progress(10)
                     import torchaudio
 
-                    ref_ext  = Path(st.session_state.ref_audio_name).suffix
+                    ref_ext = Path(st.session_state.ref_audio_name).suffix
                     ref_path = os.path.join(tmpdir, f"ref{ref_ext}")
                     with open(ref_path, "wb") as f:
                         f.write(st.session_state.ref_audio_bytes)
@@ -438,7 +383,7 @@ else:
                     progress.progress(25)
 
                     status.text("🔊 질문 음성 생성 중...")
-                    torchaudio.save(q_audio_path, cb.generate(question,       audio_prompt_path=ref_path), cb.sr)
+                    torchaudio.save(q_audio_path, cb.generate(question, audio_prompt_path=ref_path), cb.sr)
                     progress.progress(45)
 
                     status.text("🔊 답변 음성 생성 중...")
@@ -449,7 +394,7 @@ else:
                     from gtts import gTTS
                     status.text("🔊 음성 생성 중 (gTTS)...")
                     progress.progress(15)
-                    gTTS(text=question,       lang="en", slow=False).save(q_audio_path)
+                    gTTS(text=question, lang="en", slow=False).save(q_audio_path)
                     gTTS(text=english_script, lang="en", slow=False).save(a_audio_path)
                     progress.progress(40)
 
@@ -458,12 +403,12 @@ else:
                 W, H = 1280, 720
 
                 def make_frame(style, label, text):
-                    img  = Image.new("RGB", (W, H))
+                    img = Image.new("RGB", (W, H))
                     draw = ImageDraw.Draw(img)
                     palettes = {
-                        "다크 미니멀": ((15, 15, 25),   (196, 149, 106), (235, 235, 235), (150, 150, 160)),
-                        "라이트 클린": ((248, 246, 241), (70, 90, 160),   (30, 30, 40),   (120, 120, 130)),
-                        "딥 블루":     ((10, 30, 60),    (100, 180, 255), (230, 240, 255), (140, 170, 210)),
+                        "다크 미니멀": ((15, 15, 25),    (196, 149, 106), (235, 235, 235), (150, 150, 160)),
+                        "라이트 클린": ((248, 246, 241),  (70, 90, 160),   (30, 30, 40),   (120, 120, 130)),
+                        "딥 블루":     ((10, 30, 60),     (100, 180, 255), (230, 240, 255), (140, 170, 210)),
                     }
                     bg, accent, fg, muted = palettes.get(style, palettes["다크 미니멀"])
                     draw.rectangle([0, 0, W, H], fill=bg)
@@ -495,16 +440,16 @@ else:
                     return np.array(img)
 
                 q_frame = make_frame(video_style, "Question", question)
-                a_frame = make_frame(video_style, "Answer",   english_script)
+                a_frame = make_frame(video_style, "Answer", english_script)
                 progress.progress(70)
 
                 # ── 영상 합성 ─────────────────────────────────────────────────
                 status.text("🎞️ 영상 합성 중...")
                 q_audio = AudioFileClip(q_audio_path)
                 a_audio = AudioFileClip(a_audio_path)
-                q_clip  = ImageClip(q_frame).set_duration(q_audio.duration + 1.5).set_audio(q_audio)
-                a_clip  = ImageClip(a_frame).set_duration(a_audio.duration + 2.0).set_audio(a_audio)
-                final   = concatenate_videoclips([q_clip, a_clip], method="compose")
+                q_clip = ImageClip(q_frame).set_duration(q_audio.duration + 1.5).set_audio(q_audio)
+                a_clip = ImageClip(a_frame).set_duration(a_audio.duration + 2.0).set_audio(a_audio)
+                final = concatenate_videoclips([q_clip, a_clip], method="compose")
 
                 output_path = os.path.join(tmpdir, "ielts_speaking.mp4")
                 status.text("💾 저장 중...")
