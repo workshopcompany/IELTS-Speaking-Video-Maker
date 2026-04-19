@@ -73,17 +73,23 @@ score_desc = {
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("## ⚙️ 설정")
-
     st.markdown("### 🔑 API Key (Gemini)")
+    
+    # 1. 시스템(Secrets)에서 기본값 가져오기
     default_key = ""
     if hasattr(st, "secrets"):
         default_key = st.secrets.get("GEMINI_API_KEY", "")
+    
+    # 2. 사용자에게 입력받기
     user_api_key = st.text_input(
         "Gemini API Key (선택)",
         type="password",
         placeholder="비워두면 기본 키 사용",
         help="aistudio.google.com에서 무료 발급 가능"
     )
+
+    # 3. [중요] 최종 사용할 키 결정 로직 (이 부분이 누락되었습니다)
+    # 사용자가 직접 입력한 키가 있으면 그것을 쓰고, 없으면 시스템 기본값을 씁니다.
     gemini_api_key = user_api_key.strip() if user_api_key.strip() else default_key
 
     if user_api_key.strip():
