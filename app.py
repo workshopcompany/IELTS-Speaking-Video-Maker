@@ -209,8 +209,12 @@ if st.button("✨ 영어 스크립트 생성", type="primary", use_container_wid
     elif not korean_answer.strip():
         st.error("한글 답변을 입력해주세요.")
     else:
+        log = st.expander("🪵 디버그 로그 (오류 발생 시 확인)", expanded=False)
+
         with st.spinner("Gemini가 스크립트를 작성하는 중..."):
             try:
+                # ── [1단계] 프롬프트 구성 ──────────────────────────────────
+                log.write("**[1단계] 프롬프트 구성 중...**")
                 prompt = f"""You are an IELTS speaking coach. Transform the Korean answer into natural English for IELTS Band {target_score}.
 
 Band {target_score} guidance: {score_desc[target_score]}
@@ -227,27 +231,73 @@ Korean answer: {korean_answer}
 
 Respond ONLY with a raw JSON object - no markdown fences, no extra text:
 {{"english": "...", "korean": "자연스러운 한국어 번역", "band_tips": "이 수준에서 사용된 특징적 표현 설명 (한국어)"}}"""
+                log.success("✅ 프롬프트 구성 완료")
 
+                # ── [2단계] Gemini API 호출 ────────────────────────────────
+                log.write("**[2단계] Gemini API 호출 중...**")
                 raw = call_gemini(prompt, gemini_api_key)
+                log.write(f"📥 **API 원본 응답 ({len(raw)}자):**")
+                log.code(raw, language="text")
 
-                # JSON 펜스 제거
-                if "```" in raw:
-                    raw = raw.split("```")[1]
-                    if raw.startswith("json"):
-                        raw = raw[4:]
-                start = raw.find("{")
-                end = raw.rfind("}") + 1
-                raw = raw[start:end]
+                if raw.startswith("Error:"):
+                    st.error(f"❌ [2단계 실패] API 호출 오류: {raw}")
+                    st.stop()
+                log.success("✅ API 응답 수신 완료")
 
-                data = json.loads(raw)
+                # ── [3단계] JSON 추출 ──────────────────────────────────────
+                log.write("**[3단계] JSON 추출 중...**")
+                cleaned = raw
+
+                if "```" in cleaned:
+                    log.write("  → 마크다운 코드 펜스(```) 감지, 제거 중...")
+                    cleaned = cleaned.split("```")[1]
+                    if cleaned.startswith("json"):
+                        cleaned = cleaned[4:]
+
+                start = cleaned.find("{")
+                end = cleaned.rfind("}") + 1
+                log.write(f"  → `{{` 위치: {start}, `}}` 위치: {end - 1}")
+
+                if start == -1 or end == 0:
+                    log.error("❌ JSON 객체를 찾을 수 없습니다.")
+                    st.error("❌ [3단계 실패] 응답에서 JSON을 찾지 못했습니다. 위 로그를 열어 원본 응답을 확인하세요.")
+                    st.stop()
+
+                cleaned = cleaned[start:end]
+                log.write("  → 추출된 JSON:")
+                log.code(cleaned, language="json")
+                log.success("✅ JSON 추출 완료")
+
+                # ── [4단계] JSON 파싱 ──────────────────────────────────────
+                log.write("**[4단계] JSON 파싱 중...**")
+                try:
+                    data = json.loads(cleaned)
+                except json.JSONDecodeError as je:
+                    log.error(f"❌ JSON 파싱 실패: {je.msg}")
+                    log.write(f"  → 오류 위치: {je.lineno}번째 줄, {je.colno}번째 열 (문자 위치: {je.pos})")
+                    log.write(f"  → 오류 근처 텍스트: `...{cleaned[max(0, je.pos-30):je.pos+30]}...`")
+                    st.error(f"❌ [4단계 실패] JSON 파싱 오류 — '{je.msg}' (위치: {je.pos}). 위 로그를 열어 확인하세요.")
+                    st.stop()
+                log.write(f"  → 파싱된 키 목록: {list(data.keys())}")
+                log.success("✅ JSON 파싱 완료")
+
+                # ── [5단계] 필드 추출 ──────────────────────────────────────
+                log.write("**[5단계] 필드 추출 중...**")
+                if "english" not in data:
+                    log.error(f"❌ 'english' 키가 없습니다. 실제 키: {list(data.keys())}")
+                    st.error("❌ [5단계 실패] 응답에 'english' 필드가 없습니다. 위 로그를 열어 확인하세요.")
+                    st.stop()
+
                 st.session_state.english_script = data["english"]
-                st.session_state.korean_translation = data["korean"]
+                st.session_state.korean_translation = data.get("korean", "")
                 st.session_state.band_tips = data.get("band_tips", "")
+                log.success("✅ 전체 성공! 스크립트 생성 완료.")
 
-            except json.JSONDecodeError:
-                st.error("응답 파싱 오류입니다. 다시 시도해주세요.")
             except Exception as e:
-                st.error(f"오류: {e}")
+                import traceback
+                log.error(f"❌ 예상치 못한 오류: {e}")
+                log.code(traceback.format_exc(), language="text")
+                st.error(f"❌ 예상치 못한 오류: {e} — 위의 디버그 로그를 펼쳐 확인하세요.")
 
 english_script = st.session_state.english_script
 korean_translation = st.session_state.korean_translation
