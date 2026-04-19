@@ -197,7 +197,10 @@ st.markdown('<p class="step-header">Step 3 — AI 영어 스크립트 생성 (Ge
 english_script     = st.session_state.get("english_script", "")
 korean_translation = st.session_state.get("korean_translation", "")
 import streamlit as st
-
+def call_gemini(prompt, api_key):
+    # 여기에 Gemini를 호출하는 상세 코드가 들어갑니다.
+    # 예: response = model.generate_content(prompt)
+    pass
 # 201번 줄 이전에 이 코드가 있어야 합니다.
 if "GEMINI_API_KEY" in st.secrets:
     gemini_api_key = st.secrets["GEMINI_API_KEY"]
