@@ -117,10 +117,48 @@ with st.sidebar:
 # ── Gemini API 호출 함수 (오류 수정됨) ──────────────────────────────────────────
 def call_gemini(prompt: str, api_key: str) -> str:
     import google.generativeai as genai
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-2.0-flash")
-    response = model.generate_content(prompt)
-    return response.text.strip()
+    try:
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel("gemini-2.0-flash")
+        response = model.generate_content(prompt)
+        return response.text.strip()
+    except Exception as e:
+        return f"Error: {str(e)}"
+# ── 스타일 설정 ───────────────────────────────────────────────────────────────
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono&display=swap');
+html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
+.question-card { background: #f8f6f1; border-left: 3px solid #c4956a; padding: 16px 20px; border-radius: 0 8px 8px 0; margin: 12px 0; font-size: 15px; line-height: 1.6; }
+.answer-box { background: #eef4fb; border: 1px solid #b8d4ee; padding: 16px 20px; border-radius: 8px; margin: 12px 0; font-size: 14px; line-height: 1.8; font-family: 'DM Mono', monospace; }
+.step-header { font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: #888; margin-bottom: 6px; }
+.divider { border: none; border-top: 1px solid #eee; margin: 28px 0; }
+</style>
+""", unsafe_allow_html=True)
+
+# ── Header ────────────────────────────────────────────────────────────────────
+st.markdown("# 🎙️ IELTS 스피킹 영상 메이커")
+st.markdown('<hr class="divider">', unsafe_allow_html=True)
+
+# ── Sidebar ───────────────────────────────────────────────────────────────────
+with st.sidebar:
+    st.markdown("## ⚙️ 설정")
+    st.markdown("### 🔑 API Key")
+    # Secrets 우선 확인 후 사용자 입력값 확인
+    default_key = st.secrets.get("GEMINI_API_KEY", "") if hasattr(st, "secrets") else ""
+    user_api_key = st.text_input("API Key (선택)", type="password", placeholder="비워두면 기본 키 사용")
+    gemini_api_key = user_api_key.strip() if user_api_key.strip() else default_key
+
+    target_score = st.select_slider("🎯 목표 점수", options=[5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0], value=6.5)
+    video_style = st.selectbox("🎬 배경 스타일", ["다크 미니멀", "라이트 클린", "딥 블루"])
+    show_korean = st.checkbox("한글 번역 표시", value=True)
+
+# ── IELTS 질문 데이터 ─────────────────────────────────────────────────────────
+QUESTION_BANK = {
+    "Part 1 – 일상": ["Tell me about your hometown.", "Do you enjoy cooking?", "How do you spend your weekends?"],
+    "Part 2 – 경험": ["Describe a memorable trip you have taken.", "Describe a time when you helped someone."],
+    "Part 3 – 사회": ["Do you think technology has improved education?", "Is learning a second language important?"]
+}
 
 # ── IELTS 질문 목록 (기본 프리셋) ─────────────────────────────────────────────
 QUESTION_BANK = {
@@ -149,46 +187,33 @@ QUESTION_BANK = {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Step 1: 질문 선택 (AI가 직접 질문 생성하도록 추가됨)
+# Step 1: 질문 선택 (AI 기능 복구)
 # ─────────────────────────────────────────────────────────────────────────────
 st.markdown('<p class="step-header">Step 1 — 질문 선택</p>', unsafe_allow_html=True)
-
 col1, col2 = st.columns([1, 1])
 with col1:
     part = st.selectbox("파트 선택", list(QUESTION_BANK.keys()))
 with col2:
-    question_mode = st.radio("방식", ["AI가 질문 만들기", "랜덤 기본 질문", "직접 입력"])
+    question_mode = st.radio("방식", ["AI가 생성", "랜덤 질문", "직접 입력"])
 
-if question_mode == "AI가 질문 만들기":
-    if st.button("✨ 새로운 질문 생성 (Gemini)", use_container_width=True):
-        if not gemini_api_key:
-            st.error("질문을 생성하려면 API Key가 필요합니다.")
+if question_mode == "AI가 생성":
+    if st.button("✨ 새로운 질문 생성", use_container_width=True):
+        if not gemini_api_key: st.error("API Key가 필요합니다.")
         else:
-            with st.spinner("Gemini가 IELTS 질문을 생성하는 중..."):
-                try:
-                    q_prompt = f"Act as an IELTS examiner. Ask ONE random IELTS speaking question related to the topic: '{part}'. Return ONLY the question in English without any markdown or quotes."
-                    new_q = call_gemini(q_prompt, gemini_api_key)
-                    st.session_state.current_question = new_q
-                except Exception as e:
-                    st.error(f"질문 생성 오류: {e}")
-    
-    # 세션에 저장된 질문이 없으면 기본 질문 중 하나를 표시
-    question = st.session_state.get("current_question", QUESTION_BANK[part][0])
+            with st.spinner("AI 질문 생성 중..."):
+                q_prompt = f"Ask ONE random IELTS speaking question for {part}. Return only the question."
+                st.session_state.current_question = call_gemini(q_prompt, gemini_api_key)
+    question = st.session_state.get("current_question", "질문을 생성해주세요.")
     st.markdown(f'<div class="question-card">❓ {question}</div>', unsafe_allow_html=True)
 
-elif question_mode == "랜덤 기본 질문":
-    if st.button("🎲 기본 질문 뽑기", use_container_width=True):
+elif question_mode == "랜덤 질문":
+    if st.button("🎲 질문 뽑기", use_container_width=True):
         import random
         st.session_state.current_question = random.choice(QUESTION_BANK[part])
     question = st.session_state.get("current_question", QUESTION_BANK[part][0])
     st.markdown(f'<div class="question-card">❓ {question}</div>', unsafe_allow_html=True)
-
 else:
-    question = st.text_area(
-        "질문 직접 입력",
-        placeholder="IELTS 질문을 영어로 입력하세요...",
-        height=80
-    )
+    question = st.text_area("질문 입력", placeholder="영어 질문을 입력하세요.")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Step 2: 한글 답변
@@ -209,11 +234,15 @@ korean_answer = st.text_area(
 st.markdown('<hr class="divider">', unsafe_allow_html=True)
 st.markdown('<p class="step-header">Step 3 — AI 영어 스크립트 생성 (Gemini)</p>', unsafe_allow_html=True)
 
-english_script     = st.session_state.get("english_script", "")
-korean_translation = st.session_state.get("korean_translation", "")
+# 세션 상태에서 스크립트 불러오기
+if "english_script" not in st.session_state:
+    st.session_state.english_script = ""
+if "korean_translation" not in st.session_state:
+    st.session_state.korean_translation = ""
 
+# 사이드바에서 설정한 gemini_api_key 변수를 사용해야 함
 if st.button("✨ 영어 스크립트 생성", type="primary", use_container_width=True):
-    if not gemini_api_key:
+    if not gemini_api_key: # ← 사이드바의 최종 키 변수명 확인
         st.error("Gemini API Key가 필요합니다. 사이드바에서 설정해주세요.")
     elif not question:
         st.error("질문을 선택하거나 입력해주세요.")
@@ -222,8 +251,28 @@ if st.button("✨ 영어 스크립트 생성", type="primary", use_container_wid
     else:
         with st.spinner("Gemini가 스크립트를 작성하는 중..."):
             try:
+                # 위에서 정의한 정상적인 call_gemini 함수 호출
                 prompt = f"""You are an IELTS speaking coach. Transform the Korean answer into natural English for IELTS Band {target_score}.
+                IELTS Question: {question}
+                Korean answer: {korean_answer}
+                Respond ONLY with a raw JSON: {{"english": "...", "korean": "..."}}"""
+                
+                raw = call_gemini(prompt, gemini_api_key)
+                
+                # 결과 처리 (JSON 파싱)
+                data = json.loads(raw[raw.find("{"):raw.rfind("}")+1])
+                st.session_state.english_script = data["english"]
+                st.session_state.korean_translation = data["korean"]
+                
+            except Exception as e:
+                st.error(f"스크립트 생성 중 오류가 발생했습니다: {e}")
 
+# 화면 표시 부분
+if st.session_state.english_script:
+    st.markdown(f'<div class="answer-box">🇬🇧 {st.session_state.english_script}</div>', unsafe_allow_html=True)
+    if show_korean:
+        st.write(f"🇰🇷 {st.session_state.korean_translation}")
+        
 Band {target_score} guidance: {score_desc[target_score]}
 
 Rules:
