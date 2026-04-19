@@ -70,26 +70,28 @@ score_desc = {
     8.0: "최고급 – 네이티브 수준",
 }
 
-# ── Sidebar ───────────────────────────────────────────────────────────────────
+# ── Sidebar (API Key 및 설정) ───────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("## ⚙️ 설정")
 
-    # Gemini API Key
-    # 우선순위: 사용자 직접 입력 > Streamlit Secrets 기본 키
+    # Gemini API Key 설정 (오류 수정됨)
     st.markdown("### 🔑  API Key")
-    default_key = st.secrets.get("_API_KEY", "") if hasattr(st, "secrets") else ""
+    # secrets.toml에 GEMINI_API_KEY가 있는지 확인
+    default_key = st.secrets.get("GEMINI_API_KEY", "") if hasattr(st, "secrets") else ""
     user_api_key = st.text_input(
         "API Key (선택)",
         type="password",
         placeholder="비워두면 기본 키 사용",
         help="aistudio.google.com에서 무료 발급 가능"
     )
-    _api_key = user_api_key.strip() if user_api_key.strip() else default_key
+    
+    # 사용자가 입력한 키가 있으면 우선 사용, 없으면 default_key 사용
+    gemini_api_key = user_api_key.strip() if user_api_key.strip() else default_key
 
     if user_api_key.strip():
         st.caption("✅ 내 API 키 사용 중")
     elif default_key:
-        st.caption("✅ 기본 키 사용 중 (무료)")
+        st.caption("✅ 기본 키(Secrets) 사용 중")
     else:
         st.warning("API Key가 없습니다.")
         st.markdown("[무료 발급 →](https://aistudio.google.com/apikey)  카드 불필요")
@@ -112,28 +114,25 @@ with st.sidebar:
     video_style = st.selectbox("스타일", ["다크 미니멀", "라이트 클린", "딥 블루"])
     show_korean = st.checkbox("한글 번역 표시", value=True)
 
-# ──  호출 ───────────────────────────────────────────────────────────────
-def call_(prompt: str, api_key: str) -> str:
+# ── Gemini API 호출 함수 (오류 수정됨) ──────────────────────────────────────────
+def call_gemini(prompt: str, api_key: str) -> str:
     import google.generativeai as genai
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel("gemini-2.0-flash")
     response = model.generate_content(prompt)
     return response.text.strip()
 
-# ── IELTS 질문 목록 ───────────────────────────────────────────────────────────
+# ── IELTS 질문 목록 (기본 프리셋) ─────────────────────────────────────────────
 QUESTION_BANK = {
     "Part 1 – 일상": [
         "Tell me about your hometown. What do you like most about it?",
         "Do you enjoy cooking? Why or why not?",
         "How do you usually spend your weekends?",
-        "What kind of music do you like? Why?",
-        "Do you prefer to study in the morning or at night?",
     ],
     "Part 1 – 취미/관심사": [
         "What hobbies do you have?",
         "Do you enjoy reading books? What kind?",
         "How often do you exercise?",
-        "Are you interested in art or music?",
     ],
     "Part 2 – 사람": [
         "Describe a person who has had a great influence on your life.",
@@ -142,17 +141,15 @@ QUESTION_BANK = {
     "Part 2 – 경험": [
         "Describe a memorable trip you have taken.",
         "Describe a time when you helped someone.",
-        "Describe an achievement you are proud of.",
     ],
     "Part 3 – 사회/교육": [
         "Do you think technology has improved education? In what ways?",
         "How important is it for young people to learn a second language?",
-        "What are the advantages and disadvantages of working from home?",
     ],
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Step 1: 질문 선택
+# Step 1: 질문 선택 (AI가 직접 질문 생성하도록 추가됨)
 # ─────────────────────────────────────────────────────────────────────────────
 st.markdown('<p class="step-header">Step 1 — 질문 선택</p>', unsafe_allow_html=True)
 
@@ -160,14 +157,32 @@ col1, col2 = st.columns([1, 1])
 with col1:
     part = st.selectbox("파트 선택", list(QUESTION_BANK.keys()))
 with col2:
-    question_mode = st.radio("방식", ["랜덤 질문", "직접 입력"])
+    question_mode = st.radio("방식", ["AI가 질문 만들기", "랜덤 기본 질문", "직접 입력"])
 
-if question_mode == "랜덤 질문":
-    if st.button("🎲 질문 뽑기", use_container_width=True):
+if question_mode == "AI가 질문 만들기":
+    if st.button("✨ 새로운 질문 생성 (Gemini)", use_container_width=True):
+        if not gemini_api_key:
+            st.error("질문을 생성하려면 API Key가 필요합니다.")
+        else:
+            with st.spinner("Gemini가 IELTS 질문을 생성하는 중..."):
+                try:
+                    q_prompt = f"Act as an IELTS examiner. Ask ONE random IELTS speaking question related to the topic: '{part}'. Return ONLY the question in English without any markdown or quotes."
+                    new_q = call_gemini(q_prompt, gemini_api_key)
+                    st.session_state.current_question = new_q
+                except Exception as e:
+                    st.error(f"질문 생성 오류: {e}")
+    
+    # 세션에 저장된 질문이 없으면 기본 질문 중 하나를 표시
+    question = st.session_state.get("current_question", QUESTION_BANK[part][0])
+    st.markdown(f'<div class="question-card">❓ {question}</div>', unsafe_allow_html=True)
+
+elif question_mode == "랜덤 기본 질문":
+    if st.button("🎲 기본 질문 뽑기", use_container_width=True):
         import random
         st.session_state.current_question = random.choice(QUESTION_BANK[part])
     question = st.session_state.get("current_question", QUESTION_BANK[part][0])
     st.markdown(f'<div class="question-card">❓ {question}</div>', unsafe_allow_html=True)
+
 else:
     question = st.text_area(
         "질문 직접 입력",
@@ -196,20 +211,10 @@ st.markdown('<p class="step-header">Step 3 — AI 영어 스크립트 생성 (Ge
 
 english_script     = st.session_state.get("english_script", "")
 korean_translation = st.session_state.get("korean_translation", "")
-import streamlit as st
-def call_gemini(prompt, api_key):
-    # 여기에 Gemini를 호출하는 상세 코드가 들어갑니다.
-    # 예: response = model.generate_content(prompt)
-    pass
-# 201번 줄 이전에 이 코드가 있어야 합니다.
-if "GEMINI_API_KEY" in st.secrets:
-    gemini_api_key = st.secrets["GEMINI_API_KEY"]
-else:
-    gemini_api_key = None  # 혹은 사용자에게 입력을 받도록 설정
 
 if st.button("✨ 영어 스크립트 생성", type="primary", use_container_width=True):
     if not gemini_api_key:
-        st.error("Gemini API Key가 필요합니다. 사이드바에서 입력하거나 aistudio.google.com에서 무료 발급 후 입력해주세요.")
+        st.error("Gemini API Key가 필요합니다. 사이드바에서 설정해주세요.")
     elif not question:
         st.error("질문을 선택하거나 입력해주세요.")
     elif not korean_answer.strip():
@@ -246,9 +251,10 @@ Respond ONLY with a raw JSON object — no markdown fences, no extra text:
                 raw   = raw[start:end]
 
                 data = json.loads(raw)
-                st.session_state.english_script    = data["english"]
+                st.session_state.english_script     = data["english"]
                 st.session_state.korean_translation = data["korean"]
                 st.session_state.band_tips          = data.get("band_tips", "")
+                
                 english_script     = data["english"]
                 korean_translation = data["korean"]
 
