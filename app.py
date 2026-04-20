@@ -130,8 +130,8 @@ def call_gemini(prompt: str, api_key: str) -> str:
 
     # ── 모델 fallback 순서 ────────────────────────────────────────────────────
     models = [
-        "gemini-2.0-flash",
-        "gemini-2.0-flash-light",
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-light",
         
     ]
     last_error = ""
